@@ -26,8 +26,17 @@ void setup() {
 }
 
 void loop() {
+  static uint8_t sensorIndex = 0;
+  static unsigned long lastSwitchMs = 0;
+
+  unsigned long nowMs = millis();
+  if (nowMs - lastSwitchMs >= 10000UL) {
+    sensorIndex = (sensorIndex + 1) % 2;
+    lastSwitchMs = nowMs;
+  }
+
   sensors.requestTemperatures(); 
-  float tempC = sensors.getTempCByIndex(0);
+  float tempC = sensors.getTempCByIndex(sensorIndex);
 
   String textToSend;
 
