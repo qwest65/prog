@@ -78,8 +78,14 @@ String formatForDisplay(String textToSend) {
 void loop() {
   static uint8_t displayMode = 0;
   static unsigned long lastSwitchMs = 0;
+  static unsigned long lastBlinkMs = 0;
+  static bool blinkOn = true;
 
   unsigned long nowMs = millis();
+  if (nowMs - lastBlinkMs >= 1000UL) {
+    blinkOn = !blinkOn;
+    lastBlinkMs = nowMs;
+  }
   unsigned long modeDurationMs = 50000UL;
   if (displayMode == 1 || displayMode == 2) {
     modeDurationMs = 5000UL;
@@ -95,7 +101,8 @@ void loop() {
   if (displayMode == 0) {
     DateTime now = rtc.now();
     char timeBuffer[6];
-    snprintf(timeBuffer, sizeof(timeBuffer), "%02d.%02d", now.hour(), now.minute());
+    char separator = blinkOn ? '.' : ' ';
+    snprintf(timeBuffer, sizeof(timeBuffer), "%02d%c%02d", now.hour(), separator, now.minute());
     textToSend = String(timeBuffer);
   } else {
     DallasTemperature* activeSensors = &sensors1;
