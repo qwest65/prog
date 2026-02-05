@@ -12,6 +12,10 @@
 
 #define DISPLAY_ADDR 1       // Адрес модуля
 
+// RTC DS3231 подключается по I2C:
+// SDA -> SDA (на Arduino Uno это A4), SCL -> SCL (на Arduino Uno это A5)
+// плюс питание VCC и GND.
+
 OneWire oneWire1(ONE_WIRE_BUS_1);
 OneWire oneWire2(ONE_WIRE_BUS_2);
 DallasTemperature sensors1(&oneWire1);
