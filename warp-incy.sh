@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
+# WARP in WARP -> AmneziaWG/INCY helper
+# One command:
+# bash <(curl -fsSL https://raw.githubusercontent.com/qwest65/prog/main/warp-incy.sh)
+
 AUTHOR_SCRIPT_URL="https://raw.githubusercontent.com/DikozImpact/bash-warp-generator/refs/heads/patch-1/warp_in_warp.sh"
 WORK="${TMPDIR:-/tmp}/warp-incy.$(date +%s).$$"
 mkdir -p "$WORK"
@@ -10,17 +14,16 @@ cd "$WORK"
 log(){ printf '\n[%s] %s\n' "$(date +%H:%M:%S)" "$*"; }
 die(){ echo "ERROR: $*" >&2; exit 1; }
 
-# Old Debian 11 / h2.nexus can have an expired bullseye-security entry.
-sed -i '/bullseye-security/s/^/#/' /etc/apt/sources.list 2>/dev/null || true
-
 log "Проверяю зависимости"
 missing=()
-for c in wg jq wget curl base64 python3; do
+for c in wg jq wget curl base64 python3 qrencode; do
     command -v "$c" >/dev/null 2>&1 || missing+=("$c")
 done
+
 if ((${#missing[@]})); then
+    sed -i '/bullseye-security/s/^/#/' /etc/apt/sources.list 2>/dev/null || true
     apt update
-    apt install -y wireguard-tools jq wget curl coreutils python3
+    apt install -y wireguard-tools jq wget curl coreutils python3 qrencode
 fi
 
 log "Запускаю авторский генератор WARP in WARP"
@@ -46,8 +49,6 @@ for i,o in enumerate(O[:2],1):
 print('WARP OK')
 PY
 
-# Fresh I1 on EVERY run, separately for each leg.
-# Format: AmneziaWG CPS hex block.
 log "Генерирую новые I1"
 python3 - <<'PY'
 from pathlib import Path
@@ -71,38 +72,35 @@ Path('WARPNEW-INCY.conf').write_text(render(o1,Path('I1-1.txt').read_text().stri
 Path('WARPNEW-SECOND-INCY.conf').write_text(render(o2,Path('I1-2.txt').read_text().strip(),1280,'WARPNEW in WARP'))
 PY
 
-# INCY supports incy://import/{base64-conf}. URL-safe Base64 is accepted.
+# INCY supports incy://import/{base64-conf}. Use URL-safe base64 in the QR.
 B64_1="$(base64 -w0 WARPNEW-INCY.conf | tr '+/' '-_' | tr -d '=')"
 B64_2="$(base64 -w0 WARPNEW-SECOND-INCY.conf | tr '+/' '-_' | tr -d '=')"
+LINK1="incy://import/${B64_1}"
+LINK2="incy://import/${B64_2}"
 
-# One combined import: two AmneziaWG profiles in one base64 subscription body.
-LINE1="amneziawg://${B64_1}#WARPNEW"
-LINE2="amneziawg://${B64_2}#WARPNEW-SECOND"
-COMBINED_B64="$(printf '%s\n%s\n' "$LINE1" "$LINE2" | base64 -w0 | tr '+/' '-_' | tr -d '=')"
+# Also save the raw files in the directory from which the command was started.
+cp WARPNEW-INCY.conf "$OLDPWD/WARPNEW-INCY.conf" 2>/dev/null || true
+cp WARPNEW-SECOND-INCY.conf "$OLDPWD/WARPNEW-SECOND-INCY.conf" 2>/dev/null || true
 
-# Also provide a direct HTTPS download URL via the same public endpoint as the author.
-DOWNLOAD_API='https://immalware.vercel.app/download'
-DL1="${DOWNLOAD_API}?filename=WARPNEW-INCY.conf&content=${B64_1}"
-DL2="${DOWNLOAD_API}?filename=WARPNEW-SECOND-INCY.conf&content=${B64_2}"
+print_qr() {
+    local title="$1"
+    local link="$2"
+    printf '\n%s\n' "==================== $title ===================="
+    if ! qrencode -t UTF8 -m 1 "$link"; then
+        echo "Не удалось вывести QR; ссылка ниже."
+        printf '%s\n' "$link"
+    fi
+    printf '%s\n' "============================================================"
+}
 
 printf '\n'
 printf '%s\n' '============================================================'
-printf '%s\n' 'ГОТОВО — INCY'
+printf '%s\n' 'ГОТОВО — СКАНИРУЙ QR В INCY'
 printf '%s\n' '============================================================'
-printf '%s\n' 'Готовая ссылка INCY для первого WARP:'
-printf '%s\n' "incy://import/${B64_1}"
-printf '\n%s\n' 'Готовая ссылка INCY для второго WARP:'
-printf '%s\n' "incy://import/${B64_2}"
-printf '\n%s\n' 'ОДНА ссылка с двумя AmneziaWG-профилями:'
-printf '%s\n' "incy://import/${COMBINED_B64}"
-printf '\n%s\n' 'Прямые HTTPS-ссылки на .conf:'
-printf '%s\n' "$DL1"
-printf '%s\n' "$DL2"
-printf '\n%s\n' 'Файлы также сохранены в текущем каталоге:'
-printf '%s\n' '  WARPNEW-INCY.conf'
-printf '%s\n' '  WARPNEW-SECOND-INCY.conf'
-printf '%s\n' '============================================================'
-printf '%s\n' 'Важно: raw .conf = один профиль. Сам detour WARP-in-WARP внутри'
-printf '%s\n' 'одного AmneziaWG .conf не задаётся; комбинированная ссылка импортирует'
-printf '%s\n' 'два отдельных профиля.'
+print_qr '1) WARPNEW' "$LINK1"
+print_qr '2) WARPNEW-SECOND' "$LINK2"
+printf '\n%s\n' 'Файлы сохранены:'
+printf '%s\n' "  $OLDPWD/WARPNEW-INCY.conf"
+printf '%s\n' "  $OLDPWD/WARPNEW-SECOND-INCY.conf"
+printf '\n%s\n' 'Каждый запуск создаёт новые private key, reserved и I1.'
 printf '%s\n' '============================================================'
