@@ -1,13 +1,18 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-# WARP in WARP -> AmneziaWG/INCY helper
 # One command:
-#   bash <(curl -fsSL https://raw.githubusercontent.com/qwest65/prog/main/warp-incy.sh)
+# bash <(curl -fsSL 'https://raw.githubusercontent.com/qwest65/prog/main/warp-incy.sh')
 #
-# The author's generator PRINTS a download URL instead of saving WARP.conf.
-# This script captures that URL, extracts its base64 content, then creates
-# INCY-ready AmneziaWG profiles and QR codes.
+# Result:
+#   - 2 fresh Cloudflare WARP accounts/keys from the author's generator
+#   - 2 fresh I1 values based on the user's known-working QUIC CPS signature
+#   - 2 INCY-ready AmneziaWG .conf files
+#   - QR codes printed directly in the terminal
+#
+# The first profile is the outer WARP and is the one to import/test in INCY.
+# The second profile is the inner leg from the author's WARP-in-WARP pair.
+# A raw .conf cannot encode detour/dialer-proxy chaining by itself.
 
 AUTHOR_SCRIPT_URL="https://raw.githubusercontent.com/DikozImpact/bash-warp-generator/refs/heads/patch-1/warp_in_warp.sh"
 WORK="${TMPDIR:-/tmp}/warp-incy.$(date +%s).$$"
@@ -18,122 +23,124 @@ cd "$WORK"
 log(){ printf '\n[%s] %s\n' "$(date +%H:%M:%S)" "$*"; }
 die(){ echo "ERROR: $*" >&2; exit 1; }
 
-log "Проверяю зависимости"
+# Your previously working WARP used this real QUIC Initial snapshot as I1.
+# We keep the proven base and add a fresh CPS random tag on every run so
+# every generated I1 is different while retaining the working signature.
+BASE_I1='<b 0xc7000000010809a1ed4edbbe7615000044d017a61a0d774f04290f119e701ef0035df2b0ed571b0b575e6a07246b856eb6ec036fef07f1e07b861251ad737abeb67e64be714c1dcd865312b1b6c35c089c997aeb5c18f808696fe97289513945d84ca846467603e94e44224877f2c1d3261e4ac18740be4bd064369c94fc08978d99b54bf615250998639010c1284248e1d73004b81fcb20b559d8a17eced7eab3964b5b88ca7a3b8579fc8c1c934189e77143b4ac434138114b1048651b56545b87acbef0952763538f3ddeb37cfc6d58b4881c3b719d7ff78f6ee1324a2914a32381c05a64c700466d280be007253bb030d179c4f1b3dc221e1974e2ee6d6e2b9e8d709159b5ef22e1783dbba845c20ca1c83b066c73835920ad70b806df0aee0351e3fc9ab1e42e8b2a30fe235ff0612eee19744949cecee0463b76514ad90c1f7ceaa557c18586ab561d49482e73c85d0143785da14a441bf82f78783b61cccd44aecb1947516e79b5ca5a6b3a8aed6040fae0eeabdc55a88dc19ade832d99fca90c7a629cacc07192d7e47e3c6a271b95b0ea3392562a06a1cab79f40ea92916ebee197b7b5f14b251824e1ed20ff2ca80b1f03a43e45157589bc61b978e97851025b3b7ccc17d291e1cb60fe48a5c26829dce11dd23c2e73265a9ebf8617c985e4fee4681e863f990061f4dea465a7d2524bd0edcf4b48d4b8f25fc359b15babd2637284a4774077dca60091f1a781cfee1bef9713dd5943a579d7470bc5970542fbb27fdf77880a8d8751b1f642c7a3f019a05ab94bf63d3525ef34e9290b5c8d477f2714e6d6e3e4d35c1983f5e16fda57fcdf071b513f8f088dbe8d5a97577d17a5383a496c3f313adfdd47c962bbaebd6aa13b46439eb742622c29ca067db0ec1853064c3cbbffe0a215a19fce47d49703ed58ebbd89721172d256d1cf30188106fb2f863186511401fad54d087aa2fb3d1b85768db386bd7102e8060ac157bac011acdcdae2799b9aee1467c3424013455bd028fcaacdc3c77d28ea199967d617ea7d0d0815f3cc407934a76d1293dccba210d1709a13e5dd67c9ba47cd113f5bdd740358eff13164159fd09bc2f7ec6cfa64d9df7e2e2f88706b0ff3a92ccf6f078456cfe0bdd89292cfe2680badc1eac9f7d36efe8eb6912c7b164508d13e6c0911c15f73c233cbe4fc70ff2ade1e1be4bbb738e0939159e2078a9438f05b756a003371f4861481c38f1cdd2d7b06deb62869e9fe79a8abaa920646fa2e8fa28f0d80c136376c7b56046bae4c05c0cdf64efb8c47bbfc5a1a4c0b045061ef0d71618e0d206a1d7f245fd5c03191b152673ba8dff8e1b8de7c50234a93cba91e3888adb228cc02beded4b1c0946797d3ef02dec2edb6ad0ac21f89f4be364c317da7c22440e9f358d512203f4b7ab20388af68b8915d0152db2c8a0687bfaea870f7529bb92a22b35bd79bc6d490591406346ecd78342ee3563c4883a8251679691c2d4e963397e24653520795511b018915374c954bddb940a9d7a16d1c8bd798fc7dbfb0599a7074e13f87e14efa8d511bb2579ec029b1bda18fe971b30fbe19e986ff2686a69bf3f1bb929de93ae70345ebca998b11e0a2b41890cba628d8f6e7c4e94790735e5299b4ff07cd3080f7d53c9cbe1911d2cd5925b3213e033c272506a87886cf761a283a779564d3241e3c28f632e166b5d756e1786ce077614c4444e3f2aed5decb3613b925ea3e558c21d4faf8ba54edd0f3a5d4>'
+
+# ---------- dependencies ----------
 missing=()
 for c in wg jq wget curl base64 python3 qrencode; do
-    command -v "$c" >/dev/null 2>&1 || missing+=("$c")
+  command -v "$c" >/dev/null 2>&1 || missing+=" $c"
 done
-if ((${#missing[@]})); then
-    sed -i '/bullseye-security/s/^/#/' /etc/apt/sources.list 2>/dev/null || true
-    apt update
-    apt install -y wireguard-tools jq wget curl coreutils python3 qrencode
+if [ -n "$missing" ]; then
+  sed -i '/bullseye-security/s/^/#/' /etc/apt/sources.list 2>/dev/null || true
+  log "Устанавливаю зависимости: $missing"
+  apt update
+  apt install -y wireguard-tools jq wget curl coreutils python3 qrencode
 fi
 
-log "Скачиваю авторский генератор"
+# ---------- run author's generator ----------
+log "Запускаю авторский WARP-in-WARP generator"
 wget --inet4-only -qO warp_in_warp.sh "$AUTHOR_SCRIPT_URL"
 chmod +x warp_in_warp.sh
 
-# IMPORTANT: author script prints the generated WARP.conf as a download URL.
-log "Генерирую новые WARP"
-if ! bash ./warp_in_warp.sh >author-output.txt 2>&1; then
-    cat author-output.txt
-    die "Авторский генератор завершился с ошибкой"
-fi
+# The author script prints a long immalware.vercel.app/download URL instead of
+# reliably leaving WARP.conf on disk. Capture stdout/stderr and recover URL.
+bash ./warp_in_warp.sh 2>&1 | tee generator.log
 
-# Show the author's output for diagnostics, but parse the URL from the captured file.
-cat author-output.txt
+GEN_URL="$(grep -oE 'https://immalware\.vercel\.app/download\?filename=WARP\.conf&content=[A-Za-z0-9+/=_-]+' generator.log | tail -n1)"
+[ -n "$GEN_URL" ] || die "Не удалось извлечь ссылку WARP.conf из вывода авторского генератора"
 
-AUTHOR_URL="$(grep -oE 'https://immalware\.vercel\.app/download\?filename=[^[:space:]]+' author-output.txt | tail -n1 || true)"
-[ -n "$AUTHOR_URL" ] || die "Не нашёл ссылку на сгенерированный WARP.conf в выводе автора"
+log "Скачиваю фактический WARP.conf по ссылке генератора"
+curl -fsSL --retry 3 --connect-timeout 10 "$GEN_URL" -o WARP.conf
+[ -s WARP.conf ] || die "Скачанный WARP.conf пустой"
 
-log "Извлекаю WARP.conf из URL автора"
-AUTHOR_URL="$AUTHOR_URL" python3 - <<'PY'
-import os, urllib.parse, base64
-from pathlib import Path
-
-u = os.environ["AUTHOR_URL"]
-q = urllib.parse.urlparse(u).query
-params = urllib.parse.parse_qs(q, keep_blank_values=True)
-content = params.get("content", [""])[0]
-if not content:
-    raise SystemExit("В URL автора нет параметра content")
-
-# The author uses standard base64. Be tolerant of URL quoting.
-content = urllib.parse.unquote(content)
-content += "=" * ((4 - len(content) % 4) % 4)
-try:
-    raw = base64.b64decode(content, validate=False)
-except Exception as e:
-    raise SystemExit(f"Не удалось декодировать content: {e}")
-
-Path("author-WARP.conf").write_bytes(raw)
-print("author-WARP.conf extracted")
-PY
-
-log "Проверяю две свежие WARP-регистрации"
+# ---------- validate ----------
 python3 - <<'PY'
 import json
 from pathlib import Path
-D=json.loads(Path('author-WARP.conf').read_text())
-O=D.get('outbounds',[])
-if len(O)<2: raise SystemExit('Нет двух WARP outbounds')
-for i,o in enumerate(O[:2],1):
+
+d=json.loads(Path('WARP.conf').read_text())
+o=d.get('outbounds',[])
+if len(o)<2:
+    raise SystemExit('В WARP.conf нет двух outbounds')
+for i,x in enumerate(o[:2],1):
     for k in ('private_key','local_address','peer_public_key','reserved','server','server_port'):
-        if not o.get(k): raise SystemExit(f'WARP #{i}: нет {k}')
-    if len(o['local_address'])<2: raise SystemExit(f'WARP #{i}: нет IPv6')
-print('WARP OK')
+        if not x.get(k):
+            raise SystemExit(f'WARP #{i}: нет {k}')
+    if len(x['local_address'])<2:
+        raise SystemExit(f'WARP #{i}: нет IPv6')
+print('WARP.conf: OK')
 PY
 
-log "Генерирую НОВЫЕ I1"
-python3 - <<'PY'
-from pathlib import Path
-import secrets
-for n in (1,2):
-    # Fresh CPS packet every run, independent for both profiles.
-    Path(f'I1-{n}.txt').write_text('<b 0xc300000001'+secrets.token_hex(48)+'>\n')
-PY
+# ---------- fresh I1 ----------
+# Keep the known-working QUIC snapshot and append a cryptographically random
+# CPS field. This makes I1 unique per run without replacing the known-good
+# protocol imitation with an arbitrary random packet.
+I1_1="${BASE_I1%>}<r 24>"
+I1_2="${BASE_I1%>}<r 24>"
 
-log "Формирую INCY-ready AmneziaWG .conf"
+# Make them different even inside the same run.
+R2="$(openssl rand -hex 24 2>/dev/null || od -An -N24 -tx1 /dev/urandom | tr -d ' \n')"
+I1_2="${BASE_I1%>}<r 24><b 0x${R2}>"
+
+printf '%s\n' "$I1_1" > I1-WARPNEW.txt
+printf '%s\n' "$I1_2" > I1-WARPNEW-SECOND.txt
+
+# ---------- convert to INCY AmneziaWG .conf ----------
 python3 - <<'PY'
 from pathlib import Path
 import json
-D=json.loads(Path('author-WARP.conf').read_text())
-o1,o2=D['outbounds'][:2]
+
+d=json.loads(Path('WARP.conf').read_text())
+o1,o2=d['outbounds'][:2]
+i1_1=Path('I1-WARPNEW.txt').read_text().strip()
+i1_2=Path('I1-WARPNEW-SECOND.txt').read_text().strip()
 
 def ip(o,n): return o['local_address'][n].split('/',1)[0]
-def r(o): return ','.join(map(str,o['reserved']))
-def render(o,i1,mtu,name):
-    return f'''# {name}\n[Interface]\nPrivateKey = {o["private_key"]}\nAddress = {ip(o,0)}/32, {ip(o,1)}/128\nMTU = {mtu}\nJc = 4\nJmin = 40\nJmax = 70\nS1 = 0\nS2 = 0\nS3 = 0\nS4 = 0\nH1 = 1\nH2 = 2\nH3 = 3\nH4 = 4\nI1 = {i1}\n\n[Peer]\nPublicKey = {o["peer_public_key"]}\nAllowedIPs = 0.0.0.0/0, ::/0\nEndpoint = {o["server"]}:{o["server_port"]}\nPersistentKeepalive = 15\nReserved = {r(o)}\n'''
-Path('WARPNEW-INCY.conf').write_text(render(o1,Path('I1-1.txt').read_text().strip(),1420,'WARPNEW'))
-Path('WARPNEW-SECOND-INCY.conf').write_text(render(o2,Path('I1-2.txt').read_text().strip(),1280,'WARPNEW-SECOND'))
+def rsv(o): return ','.join(map(str,o['reserved']))
+def render(o,i1,mtu,title):
+    return f'''# {title}\n\n[Interface]\nPrivateKey = {o["private_key"]}\nAddress = {ip(o,0)}/32, {ip(o,1)}/128\nMTU = {mtu}\nJc = 4\nJmin = 40\nJmax = 70\nS1 = 0\nS2 = 0\nS3 = 0\nS4 = 0\nH1 = 1\nH2 = 2\nH3 = 3\nH4 = 4\nI1 = {i1}\n\n[Peer]\nPublicKey = {o["peer_public_key"]}\nAllowedIPs = 0.0.0.0/0, ::/0\nEndpoint = {o["server"]}:{o["server_port"]}\nPersistentKeepalive = 15\nReserved = {rsv(o)}\n'''
+Path('WARPNEW-INCY.conf').write_text(render(o1,i1_1,1420,'WARPNEW'))
+Path('WARPNEW-SECOND-INCY.conf').write_text(render(o2,i1_2,1280,'WARPNEW in WARP - second leg'))
 PY
 
-# INCY accepts amneziawg://<base64url-conf>#Name and incy://import/<base64-conf>.
-# Use the canonical amneziawg:// form in QR.
+# ---------- make INCY deep links ----------
 B64_1="$(base64 -w0 WARPNEW-INCY.conf | tr '+/' '-_' | tr -d '=')"
 B64_2="$(base64 -w0 WARPNEW-SECOND-INCY.conf | tr '+/' '-_' | tr -d '=')"
-LINK1="amneziawg://${B64_1}#WARPNEW"
-LINK2="amneziawg://${B64_2}#WARPNEW-SECOND"
+LINK1="incy://import/${B64_1}"
+LINK2="incy://import/${B64_2}"
 
-print_qr() {
-    local title="$1"
-    local link="$2"
-    printf '\n%s\n' "==================== ${title} ===================="
-    if ! qrencode -t UTF8 -m 1 "$link"; then
-        echo "QR не удалось вывести. Ссылка ниже:"
-        printf '%s\n' "$link"
-    fi
-    printf '%s\n' "============================================================"
+# ---------- QR ----------
+print_qr(){
+  local title="$1" link="$2"
+  printf '\n\n============================================================\n'
+  printf ' %s\n' "$title"
+  printf '============================================================\n\n'
+  qrencode -t ANSIUTF8 -m 1 -l M "$link" || {
+    echo "QR не удалось отрисовать. Ссылка:"
+    echo "$link"
+  }
+  printf '\n============================================================\n'
 }
 
 printf '\n'
-printf '%s\n' '============================================================'
-printf '%s\n' 'ГОТОВО — СКАНИРУЙ QR В INCY'
-printf '%s\n' '============================================================'
-print_qr '1) WARPNEW' "$LINK1"
-print_qr '2) WARPNEW-SECOND' "$LINK2"
-printf '\n%s\n' 'Файлы сохранены в текущем каталоге:'
-printf '%s\n' '  WARPNEW-INCY.conf'
-printf '%s\n' '  WARPNEW-SECOND-INCY.conf'
-printf '\n%s\n' 'Каждый запуск создаёт новые private key, reserved и I1.'
-printf '%s\n' '============================================================'
+printf '############################################################\n'
+printf '# WARP in WARP -> INCY\n'
+printf '# Сканируй QR камерой INCY\n'
+printf '############################################################\n'
+
+print_qr "1) WARPNEW" "$LINK1"
+print_qr "2) WARPNEW SECOND" "$LINK2"
+
+printf '\nГотовые файлы:\n'
+printf '  %s/WARPNEW-INCY.conf\n' "$WORK"
+printf '  %s/WARPNEW-SECOND-INCY.conf\n' "$WORK"
+printf '\nКаждый запуск: новые WARP keys + новые reserved + новые I1.\n'
+printf 'Первый QR — основной профиль для INCY.\n'
+printf '============================================================\n'
+
+# Keep files in the directory where the user started the command.
+cp WARPNEW-INCY.conf "$OLDPWD/" 2>/dev/null || true
+cp WARPNEW-SECOND-INCY.conf "$OLDPWD/" 2>/dev/null || true
